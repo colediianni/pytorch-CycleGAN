@@ -1,0 +1,30 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "train",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "args": ["--dataroot", "./datasets/maps", "--name", "maps_cyclegan", "--model", "cycle_gan"],
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "cwd": "/nobackup/cole/pytorch-CycleGAN",
+            "python": "${command:python.interpreterPath}"
+        },
+        {
+            "name": "visualize",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "args": ["--dataroot", "./datasets/maps", "--name", "maps_cyclegan", "--model", "cycle_gan"],
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "cwd": "/nobackup/cole/pytorch-CycleGAN",
+            "python": "${command:python.interpreterPath}"
+        }
+    ]
+}

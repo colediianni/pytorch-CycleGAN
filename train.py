@@ -24,21 +24,20 @@ from data import create_dataset
 from models import create_model
 from util.visualizer import Visualizer
 
-from datasets.glioma_data_loader import (
-    WSIDataset
-)
+# from data.glioma_dataset import (
+    # WSIDataset
+# )
 
 if __name__ == '__main__':
     opt = TrainOptions().parse()   # get training options
     
     # Get ID and OOD data loaders
-    wsi_dataset = WSIDataset("/nobackup/datasets/gdrive/UoW_MQ_Glioma/metadata_csv_folder")
+    # wsi_dataset = WSIDataset("/nobackup/datasets/gdrive/UoW_MQ_Glioma/metadata_csv_folder")
 
-    if opt.glioma:
-        dataset = wsi_dataset.Obtain_cycle_gan_loader(opt.a_dataset, opt.b_dataset opt.batch_size, n_jobs)
-        
-    else:
-        dataset = create_dataset(opt)  # create a dataset given opt.dataset_mode and other options
+    # if opt.glioma:
+    #     dataset = wsi_dataset.Obtain_loader(opt.a_dataset, opt.b_dataset, opt.batch_size, n_jobs)
+    # else:
+    dataset = create_dataset(opt)  # create a dataset given opt.dataset_mode and other options
     dataset_size = len(dataset)    # get the number of images in the dataset.
     print('The number of training images = %d' % dataset_size)
 
@@ -67,7 +66,6 @@ if __name__ == '__main__':
             # data must have [A] with A image tensors, [B] with B image tensors, and corresponsing paths
             
             model.set_input(data)         # unpack data from dataset and apply preprocessing
-            
             
             model.optimize_parameters()   # calculate loss functions, get gradients, update network weights
 

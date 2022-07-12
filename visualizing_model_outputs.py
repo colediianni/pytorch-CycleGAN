@@ -41,11 +41,11 @@ if __name__ == '__main__':
             plt.subplot(2, 3, img_index+1)
             plt.title(images[img_index])
             image = np.transpose(visuals[images[img_index]][0].cpu().detach().numpy(), (1, 2, 0))
-            image = (image / 2) + 0.5# Unnormalize because current image is between -1 and 1
+            image = (image / 2) + 0.5 # Unnormalize because current image is between -1 and 1
             plt.imshow(image)
         plt.savefig(os.path.join(opt.results_dir, img_path[0][img_path[0].rfind('/') + 1:]))
         if i % 5 == 0:  # save images to an HTML file
             print('processing (%04d)-th image... %s' % (i, img_path))
-            
+        
             
         # save_images(webpage, visuals, img_path, aspect_ratio=opt.aspect_ratio, width=opt.display_winsize, use_wandb=opt.use_wandb)

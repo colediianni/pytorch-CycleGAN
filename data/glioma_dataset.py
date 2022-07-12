@@ -26,6 +26,9 @@ from torchvision import transforms, utils
 from collections import defaultdict
 from collections import Counter
 
+from data.base_dataset import BaseDataset, get_transform
+from PIL import Image
+import random
 # device = torch.device('cuda') if torch.cuda.is_available(
 # ) else torch.device('cpu')
 
@@ -44,7 +47,7 @@ def make_dataset(dir, max_dataset_size=float("inf")):
             images.append(path)
     return images[:min(max_dataset_size, len(images))]
 
-class GliomaDataset(object):
+class GliomaDataset(BaseDataset):
     """A dataset class for paired image dataset.
 
     It assumes that the directory '/path/to/data/train' contains image pairs in the form of {A,B}.
@@ -74,18 +77,21 @@ class GliomaDataset(object):
 
 
     def __init__(self, opt):
+        BaseDataset.__init__(self, opt)
         """Initialize this dataset class.
 
         Parameters:
             opt (Option class) -- stores all the experiment flags; needs to be a subclass of BaseOptions
         """
         self.opt = opt
-        self.root = opt.dataroot        
+        self.root = "/nobackup/datasets/gdrive/UoW_MQ_Glioma/metadata_csv_folder"
         
-        self.A_paths = self.get_image_paths(self.root, opt.A_dataset)
-        self.B_paths = self.get_image_paths(self.root, opt.B_dataset)
+        self.A_paths = self.get_image_paths(self.root, opt.dataroot)
+        self.B_paths = self.get_image_paths(self.root, opt.dataroot)
         self.A_paths = self.A_paths[:min(opt.max_dataset_size, len(self.A_paths), len(self.B_paths))]
         self.B_paths = self.B_paths[:min(opt.max_dataset_size, len(self.A_paths), len(self.B_paths))]
+        self.A_size = len(self.A_paths)  # get the size of dataset A
+        self.B_size = len(self.B_paths)  # get the size of dataset B
         
         assert(self.opt.load_size >= self.opt.crop_size)   # crop_size should be smaller than the size of loaded image
         
@@ -104,18 +110,40 @@ class GliomaDataset(object):
             A_paths (str) - - image paths
             B_paths (str) - - image paths (same as A_paths)
         """
-        A_path = self.A_paths[index]
-        B_path = self.B_paths[index]
-        A_image = cv2.imread(A_path, cv2.COLOR_BGR2RGB)
-        A_image = cv2.resize(A_image, (256, 256), interpolation=cv2.INTER_CUBIC)
-        B_image = cv2.imread(A_path, cv2.COLOR_BGR2RGB)
-        B_image = cv2.resize(A_image, (256, 256), interpolation=cv2.INTER_CUBIC)
+        A_path = self.A_paths[index % self.A_size]  # make sure index is within then range
+        if self.opt.serial_batches:   # make sure index is within then range
+            index_B = index % self.B_size
+        else:   # randomize the index for domain B to avoid fixed pairs.
+            index_B = random.randint(0, self.B_size - 1)
+        B_path = self.B_paths[index_B]
+        
+        A_img = Image.open(A_path).convert('RGB').resize((256, 256))
+        B_img = Image.open(B_path).convert('RGB').resize((256, 256))
+        # A_image = cv2.imread(A_path, cv2.COLOR_BGR2RGB)
+        # A_image = cv2.resize(A_image, (256, 256), interpolation=cv2.INTER_CUBIC)
+        # B_image = cv2.imread(A_path, cv2.COLOR_BGR2RGB)
+        # B_image = cv2.resize(A_image, (256, 256), interpolation=cv2.INTER_CUBIC)
+        
+        
+        btoA = self.opt.direction == 'BtoA'
+        input_nc = self.opt.output_nc if btoA else self.opt.input_nc       # get the number of channels of input image
+        output_nc = self.opt.input_nc if btoA else self.opt.output_nc      # get the number of channels of output image
+        self.transform_A = get_transform(self.opt, grayscale=(input_nc == 1))
+        add_blur, jitter = (random.randint(0, 100) != 1), (random.randint(0, 100) != 1)
+        self.transform_B = get_transform(self.opt, grayscale=(output_nc == 1), 
+                                         allow_covariate=True, 
+                                         blur=(random.randint(0, 4)*2 + 1, random.randint(0, 4)*2 + 1),
+                                         add_blur = add_blur,
+                                         jitter = jitter)
+        
+        A_image = self.transform_A(A_img)
+        B_image = self.transform_B(B_img)
 
         return {'A': A_image, 'B': B_image, 'A_paths': A_path, 'B_paths': B_path}
 
     def __len__(self):
         """Return the total number of images in the dataset."""
-        return min(len(self.A_paths), len(self.B_paths))
+        return max(self.A_size, self.B_size)
 
 
 

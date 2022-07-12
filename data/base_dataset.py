@@ -78,7 +78,7 @@ def get_params(opt, size):
     return {'crop_pos': (x, y), 'flip': flip}
 
 
-def get_transform(opt, params=None, grayscale=False, method=Image.BICUBIC, convert=True, allow_covariate=False):
+def get_transform(opt, params=None, grayscale=False, method=Image.BICUBIC, convert=True, allow_covariate=False, blur=(1, 1), jitter=False, add_blur=True):
     transform_list = []
     if grayscale:
         transform_list.append(transforms.Grayscale(1))
@@ -95,8 +95,10 @@ def get_transform(opt, params=None, grayscale=False, method=Image.BICUBIC, conve
             transform_list.append(transforms.Lambda(lambda img: __crop(img, params['crop_pos'], opt.crop_size)))
             
     if 'covariate' in opt.preprocess and allow_covariate:
-        transform_list.append(transforms.ColorJitter(brightness=.5, hue=.3))
-        transform_list.append(transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5)))
+        if jitter:
+            transform_list.append(transforms.ColorJitter(brightness=(0, 1), hue=(-0.3, 0.3)))
+        if add_blur:
+            transform_list.append(transforms.GaussianBlur(kernel_size=blur, sigma=(0.1, 5)))
         # transform_list.append(transforms.ElasticTransform(alpha=100.0))
 
     if opt.preprocess == 'none':

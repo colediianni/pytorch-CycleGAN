@@ -3,6 +3,7 @@ from data.base_dataset import BaseDataset, get_transform
 from data.image_folder import make_dataset
 from PIL import Image
 import random
+from augmentations import augment_and_mix
 
 
 class AugmentedDataset(BaseDataset):
@@ -58,7 +59,7 @@ class AugmentedDataset(BaseDataset):
         B_img = Image.open(B_path).convert('RGB')
         # apply image transformation
         A = self.transform_A(A_img)
-        B = self.transform_B(B_img)
+        B = augment_and_mix(self.transform_B(B_img), severity=3, width=3, depth=-1, alpha=1.)
 
         return {'A': A, 'B': B, 'A_paths': A_path, 'B_paths': B_path}
 

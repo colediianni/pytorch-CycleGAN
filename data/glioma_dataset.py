@@ -1,3 +1,5 @@
+import time
+import matplotlib.pyplot as plt
 from matplotlib import pyplot
 from sklearn.metrics import roc_auc_score
 from sklearn.metrics import roc_curve
@@ -62,6 +64,12 @@ class GliomaDataset(BaseDataset):
             csv_path = os.path.join(root, '_Test_All.csv')
         elif dataset_name == 'Test_MUH_GAN_Normalized':
             csv_path = os.path.join(root, '_Test_MUH.csv')
+        elif dataset_name == 'Train_Unnormalized':
+            csv_path = os.path.join(root, '_Train_All_Unnormalized.csv')
+        elif dataset_name == 'Valid_Unnormalized':
+            csv_path = os.path.join(root, '_Valid_All_Unnormalized.csv')
+        elif dataset_name == 'Test_Unnormalized':
+            csv_path = os.path.join(root, '_Test_All_Unnormalized.csv')
         elif dataset_name == 'TCGA_Unnormalized':
             csv_path = os.path.join(root, '_Cov_Shift_TCGA.csv')
         elif dataset_name == 'GAN_Generated':
@@ -117,20 +125,23 @@ class GliomaDataset(BaseDataset):
             index_B = random.randint(0, self.B_size - 1)
         B_path = self.B_paths[index_B]
         
-        A_img = Image.open(A_path).convert('RGB').resize((256, 256))
-        B_img = Image.open(B_path).convert('RGB').resize((256, 256))
-        # A_image = cv2.imread(A_path, cv2.COLOR_BGR2RGB)
-        # A_image = cv2.resize(A_image, (256, 256), interpolation=cv2.INTER_CUBIC)
-        # B_image = cv2.imread(A_path, cv2.COLOR_BGR2RGB)
-        # B_image = cv2.resize(A_image, (256, 256), interpolation=cv2.INTER_CUBIC)
-        
+        # A_img = Image.open(A_path).convert('RGB').resize((256, 256))
+        # B_img = Image.open(B_path).convert('RGB').resize((256, 256))
+        A_img = cv2.imread(A_path, cv2.COLOR_BGR2RGB)
+        A_img = cv2.resize(A_img, (256, 256), interpolation=cv2.INTER_CUBIC)
+        B_img = cv2.imread(B_path, cv2.COLOR_BGR2RGB)
+        B_img = cv2.resize(B_img, (256, 256), interpolation=cv2.INTER_CUBIC)
+        # plt.imshow(A_img)
+        # plt.savefig("/nobackup/cole/pytorch-CycleGAN/testing_image.jpg")
+        # time.sleep(1)
         
         btoA = self.opt.direction == 'BtoA'
         input_nc = self.opt.output_nc if btoA else self.opt.input_nc       # get the number of channels of input image
         output_nc = self.opt.input_nc if btoA else self.opt.output_nc      # get the number of channels of output image
-        self.transform_A = get_transform(self.opt, grayscale=(input_nc == 1))
+        self.transform_A = get_transform(self.opt, grayscale=(input_nc == 1), convert=False)
         add_blur, jitter = (random.randint(0, 100) != 1), (random.randint(0, 100) != 1)
         self.transform_B = get_transform(self.opt, grayscale=(output_nc == 1), 
+                                         convert=False,
                                          allow_covariate=True, 
                                          blur=(random.randint(0, 4)*2 + 1, random.randint(0, 4)*2 + 1),
                                          add_blur = add_blur,
@@ -138,6 +149,10 @@ class GliomaDataset(BaseDataset):
         
         A_image = self.transform_A(A_img)
         B_image = self.transform_B(B_img)
+        
+        # plt.imshow(A_image.numpy().transpose((1, 2, 0)))
+        # plt.savefig("/nobackup/cole/pytorch-CycleGAN/testing_image.jpg")
+        # time.sleep(1)
 
         return {'A': A_image, 'B': B_image, 'A_paths': A_path, 'B_paths': B_path}
 

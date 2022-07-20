@@ -8,6 +8,7 @@ import torch.utils.data as data
 from PIL import Image
 import torchvision.transforms as transforms
 from abc import ABC, abstractmethod
+# from histomicstk.preprocessing.augmentation.color_augmentation import rgb_perturb_stain_concentration
 
 
 class BaseDataset(data.Dataset, ABC):
@@ -80,6 +81,7 @@ def get_params(opt, size):
 
 def get_transform(opt, params=None, grayscale=False, method=Image.BICUBIC, convert=True, allow_covariate=False, blur=(1, 1), jitter=False, add_blur=True):
     transform_list = []
+    transform_list += [transforms.ToTensor()] # moved here to accept glioma images, may cause problems for PIL images (if using PIL specific transformation(s))
     if grayscale:
         transform_list.append(transforms.Grayscale(1))
     if 'resize' in opt.preprocess:
@@ -96,10 +98,13 @@ def get_transform(opt, params=None, grayscale=False, method=Image.BICUBIC, conve
             
     if 'covariate' in opt.preprocess and allow_covariate:
         if jitter:
-            transform_list.append(transforms.ColorJitter(brightness=(0, 1), hue=(-0.3, 0.3)))
-        if add_blur:
-            transform_list.append(transforms.GaussianBlur(kernel_size=blur, sigma=(0.1, 5)))
+            transform_list.append(transforms.ColorJitter(brightness=(0.7, 1), contrast=(0.7, 1), saturation=(0.7, 1), hue=(-0.3, 0.3)))
+        # if add_blur:
+            # transform_list.append(transforms.GaussianBlur(kernel_size=blur, sigma=(0.1, 5)))
         # transform_list.append(transforms.ElasticTransform(alpha=100.0))
+        
+    if 'stain' in opt.preprocess and allow_covariate:
+        pass # TODO: add random stain augmentation
 
     if opt.preprocess == 'none':
         transform_list.append(transforms.Lambda(lambda img: __make_power_2(img, base=4, method=method)))
@@ -109,9 +114,8 @@ def get_transform(opt, params=None, grayscale=False, method=Image.BICUBIC, conve
             transform_list.append(transforms.RandomHorizontalFlip())
         elif params['flip']:
             transform_list.append(transforms.Lambda(lambda img: __flip(img, params['flip'])))
-
+            
     if convert:
-        transform_list += [transforms.ToTensor()]
         if grayscale:
             transform_list += [transforms.Normalize((0.5,), (0.5,))]
         else:

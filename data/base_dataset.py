@@ -8,6 +8,7 @@ import torch.utils.data as data
 from PIL import Image
 import torchvision.transforms as transforms
 from abc import ABC, abstractmethod
+import histomicstk
 # from histomicstk.preprocessing.augmentation.color_augmentation import rgb_perturb_stain_concentration
 
 
@@ -104,7 +105,7 @@ def get_transform(opt, params=None, grayscale=False, method=Image.BICUBIC, conve
         # transform_list.append(transforms.ElasticTransform(alpha=100.0))
         
     if 'stain' in opt.preprocess and allow_covariate:
-        pass # TODO: add random stain augmentation
+        transform_list.append(transforms.Lambda(lambda img: histomicstk.preprocessing.augmentation.rgb_perturb_stain_concentration(img)))
 
     if opt.preprocess == 'none':
         transform_list.append(transforms.Lambda(lambda img: __make_power_2(img, base=4, method=method)))

@@ -8,6 +8,7 @@ from collections import defaultdict
 import copy
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
+import numpy as np
 from tqdm import tqdm
 from collections import defaultdict
 import albumentations as A
@@ -27,6 +28,7 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
 from collections import defaultdict
 from collections import Counter
+import histomicstk
 
 from data.base_dataset import BaseDataset, get_transform
 from PIL import Image
@@ -149,6 +151,20 @@ class GliomaDataset(BaseDataset):
         
         A_image = self.transform_A(A_img)
         B_image = self.transform_B(B_img)
+        # print(B_image)
+        original_type = B_image.type()
+        # print(original_type)
+        # print(B_image.shape)
+        if "stain" in self.opt.preprocess:
+            B_image = np.transpose(B_image.numpy(), (1, 2, 0))
+            # print(B_image.shape)
+            B_image = histomicstk.preprocessing.augmentation.rgb_perturb_stain_concentration(B_image)
+            # print(B_image.shape)
+            B_image = np.transpose(B_image, (2, 0, 1))
+            # print(B_image.shape)
+            B_image = torch.from_numpy(B_image).type(original_type)
+        # print(B_image.type())
+        # print(B_image.shape)
         
         # plt.imshow(A_image.numpy().transpose((1, 2, 0)))
         # plt.savefig("/nobackup/cole/pytorch-CycleGAN/testing_image.jpg")

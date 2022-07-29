@@ -140,7 +140,7 @@ def main():
         # plt.imshow(image.cpu().detach().numpy()[0].transpose((1, 2, 0)))
         # plt.savefig("/nobackup/cole/pytorch-CycleGAN/testing_image.jpg")
         # norm_model.set_input({'A': image, 'B': image, 'A_paths': "nope", 'B_paths': "nope"})  # unpack data from data loader
-        # norm_model.test()           # run inference
+        # norm_model.test()  # run inference
         # visuals = norm_model.get_current_visuals()  # get image results. Stored as real_X, fake_Y, rec_X (reconstructed)
 
         with torch.no_grad():

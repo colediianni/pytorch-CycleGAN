@@ -84,7 +84,7 @@ if __name__ == '__main__':
             # print(image)
             if img_index != 0:
                 image = histomicstk.preprocessing.augmentation.rgb_perturb_stain_concentration(image)
-                print(image)
+                # print(image)
             plt.imshow(image)
         print(img_path)
         plt.savefig(os.path.join(opt.results_dir, "stain_perturbed_" + img_path[img_path.rfind('/') + 1:]))

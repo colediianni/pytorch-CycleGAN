@@ -137,34 +137,29 @@ class GliomaDataset(BaseDataset):
         # plt.savefig("/nobackup/cole/pytorch-CycleGAN/testing_image.jpg")
         # time.sleep(1)
         
+        # print(B_img.shape) # (256, 256, 3)
+        if "stain" in self.opt.preprocess:
+            if random.randint(0, 1) == 1: # 50% chance of applying transform
+                B_img = histomicstk.preprocessing.augmentation.rgb_perturb_stain_concentration(B_img)
+        aug = A.Compose([
+            A.GaussNoise(var_limit=50, p=0.5),
+        ])
+        # if random.randint(0, 1) == 1: # 50% chance of applying transform
+        #     B_img = A.elastic_transform(B_img, alpha=100, sigma=8, alpha_affine=100)
+        #     B_img = aug(image=B_img)['image']
+        
         btoA = self.opt.direction == 'BtoA'
         input_nc = self.opt.output_nc if btoA else self.opt.input_nc       # get the number of channels of input image
         output_nc = self.opt.input_nc if btoA else self.opt.output_nc      # get the number of channels of output image
         self.transform_A = get_transform(self.opt, grayscale=(input_nc == 1), convert=False)
-        add_blur, jitter = (random.randint(0, 100) != 1), (random.randint(0, 100) != 1)
         self.transform_B = get_transform(self.opt, grayscale=(output_nc == 1), 
                                          convert=False,
                                          allow_covariate=True, 
-                                         blur=(random.randint(0, 4)*2 + 1, random.randint(0, 4)*2 + 1),
-                                         add_blur = add_blur,
-                                         jitter = jitter)
+                                         blur=(random.randint(0, 4)*2 + 1, random.randint(0, 4)*2 + 1))
         
+        # print(type(B_img))
         A_image = self.transform_A(A_img)
         B_image = self.transform_B(B_img)
-        # print(B_image)
-        original_type = B_image.type()
-        # print(original_type)
-        # print(B_image.shape)
-        if "stain" in self.opt.preprocess:
-            B_image = np.transpose(B_image.numpy(), (1, 2, 0))
-            # print(B_image.shape)
-            B_image = histomicstk.preprocessing.augmentation.rgb_perturb_stain_concentration(B_image)
-            # print(B_image.shape)
-            B_image = np.transpose(B_image, (2, 0, 1))
-            # print(B_image.shape)
-            B_image = torch.from_numpy(B_image).type(original_type)
-        # print(B_image.type())
-        # print(B_image.shape)
         
         # plt.imshow(A_image.numpy().transpose((1, 2, 0)))
         # plt.savefig("/nobackup/cole/pytorch-CycleGAN/testing_image.jpg")

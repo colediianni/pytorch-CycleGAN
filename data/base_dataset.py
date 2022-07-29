@@ -80,7 +80,7 @@ def get_params(opt, size):
     return {'crop_pos': (x, y), 'flip': flip}
 
 
-def get_transform(opt, params=None, grayscale=False, method=Image.BICUBIC, convert=True, allow_covariate=False, blur=(1, 1), jitter=False, add_blur=False):
+def get_transform(opt, params=None, grayscale=False, method=Image.BICUBIC, convert=True, allow_covariate=False, blur=(1, 1)):
     transform_list = []
     transform_list += [transforms.ToTensor()] # moved here to accept glioma images, may cause problems for PIL images (if using PIL specific transformation(s))
     if grayscale:
@@ -98,15 +98,12 @@ def get_transform(opt, params=None, grayscale=False, method=Image.BICUBIC, conve
             transform_list.append(transforms.Lambda(lambda img: __crop(img, params['crop_pos'], opt.crop_size)))
             
     if 'covariate' in opt.preprocess and allow_covariate:
-        if jitter:
-            transform_list.append(transforms.ColorJitter(brightness=(0.7, 1), contrast=(0.7, 1), saturation=(0.7, 1), hue=(-0.3, 0.3)))
-        if add_blur:
-            transform_list.append(transforms.GaussianBlur(kernel_size=blur, sigma=(0.1, 5)))
-        # transform_list.append(transforms.ElasticTransform(alpha=100.0))
+        if random.randint(0, 1) == 1: # 50% chance of applying transform
+            transform_list.append(transforms.ColorJitter(brightness=(0.8, 1), contrast=(0.8, 1), saturation=(0.8, 1), hue=(-0.2, 0.2)))
+        if random.randint(0, 1) == 1: # 50% chance of applying transform
+            transform_list.append(transforms.GaussianBlur(kernel_size=blur, sigma=(0.1, 3)))
         
-    # if 'stain' in opt.preprocess and allow_covariate:
-    #     transform_list.append(transforms.Lambda(lambda img: tellez_perturb(img.numpy())))
-    #     transform_list += [transforms.ToTensor()]
+        # transform_list.append(transforms.ElasticTransform(alpha=100.0))
 
     if opt.preprocess == 'none':
         transform_list.append(transforms.Lambda(lambda img: __make_power_2(img, base=4, method=method)))
@@ -123,12 +120,6 @@ def get_transform(opt, params=None, grayscale=False, method=Image.BICUBIC, conve
         else:
             transform_list += [transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
     return transforms.Compose(transform_list)
-
-# def tellez_perturb(img):
-#     print(img.shape, flush=True)
-#     for batch_index in range(img.shape[0]):
-#         img = np.transpose(histomicstk.preprocessing.augmentation.rgb_perturb_stain_concentration(np.transpose(img, (1, 2, 0))), (2, 0, 1))
-#     return img
 
 def __make_power_2(img, base, method=Image.BICUBIC):
     ow, oh = img.size

@@ -58,21 +58,23 @@ class My_Transform(object):
     '''
     My transform: 
     '''
+
     def __init__(self):
         pass
 
     def __call__(self, sample):
-        image, label, pid = sample['image'], sample['label'], sample['pid']
+        image, label, p_id, path = sample['data'], sample['target'], sample['p_id'], sample['path']
         aug = A.Compose([
-            A.Resize(256, 256, p=1),
             A.HorizontalFlip(p=0.5),
             A.VerticalFlip(p=0.5),
-            A.RandomRotate90(p=0.5),           
-         ])
- 
+            A.RandomRotate90(p=0.5),
+        ])
+
         augmented = aug(image=image)
         image_medium = augmented['image']
-        return {'image': image_medium, 'label':label, 'pid':pid}
+        # print('augment ',image_medium.shape)
+
+        return {'data': image_medium, 'target': label, 'p_id': p_id, 'path': path}
     
 class My_Transform_valid(object):
     '''
@@ -82,16 +84,34 @@ class My_Transform_valid(object):
         pass
 
     def __call__(self, sample):
-        image, label, pid = sample['image'], sample['label'], sample['pid']
+        image, label, p_id, path = sample['data'], sample['target'], sample['p_id'], sample['path']
         aug = A.Compose([
             A.Resize(256, 256, p=1)    
          ])
 
         augmented = aug(image=image)
         image_medium = augmented['image']
-        return {'image': image_medium, 'label':label, 'pid':pid}
+        return {'data': image_medium, 'target': label, 'p_id': p_id, 'path': path}
 
 class My_Normalize(object):
+    '''
+    My Normalize (TRail)
+    '''
+
+    def __init__(self):
+        pass
+
+    def __call__(self, sample):
+        image, label, p_id, path = sample['data'], sample['target'], sample['p_id'], sample['path']
+        normal_aug = A.Normalize()
+        augmented_img = normal_aug(image=image)
+        image = augmented_img['image']
+        image = image.transpose((2, 0, 1))
+        # image = image/255.0
+        # print('normal ',image.shape)
+        return {'data': torch.from_numpy(image), 'target': torch.FloatTensor([label]), 'p_id': p_id, 'path': path}
+    
+class Cyclegan_Normalize(object):
     '''
     My Normalize (TRail)
     '''
@@ -99,15 +119,19 @@ class My_Normalize(object):
         pass
 
     def __call__(self, sample):
-        image, label,p_id = sample['image'], sample['label'], sample['pid']
-        normal_aug = A.Normalize()
-        augmented_img = normal_aug(image = image)
-        image = augmented_img['image']
+        image, label, p_id, path = sample['data'], sample['target'], sample['p_id'], sample['path']
+        # print(image)
+        # print(image.shape)
+        normal_aug = transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+        augmented_img = normal_aug(image)
+        # print(augmented_img)
+        # print(augmented_img.shape)
+        image = augmented_img
         # image = image.transpose((2, 0, 1))
         # image = image/255.0
         # print('normal ',image.shape)
         # return {'image': torch.from_numpy(image), 'label':torch.FloatTensor([label]), 'pid':p_id}
-        return {'image': image, 'label':label, 'pid':p_id}
+        return {'data': image, 'target': label, 'p_id': p_id, 'path': path}
 
 
 class ToTensor(object):
@@ -115,11 +139,12 @@ class ToTensor(object):
 
     def __call__(self, sample):
         # print(list(sample.keys()))
-        image, label, pid = sample['image'], sample['label'], sample['pid']
+        image, label, p_id, path = sample['data'], sample['target'], sample['p_id'], sample['path']
         image = image.transpose((2, 0, 1))
-        return {'image': torch.from_numpy(image).float(),
-                'label':label.squeeze(0),
-                'pid':torch.FloatTensor([pid])}
+        return {'data': torch.from_numpy(image).float(),
+                'target':label, # .squeeze(0),
+                'p_id': p_id,
+                'path': path}
 
 def set_parameter_requires_grad(model, feature_extracting):
     if feature_extracting:
@@ -145,7 +170,7 @@ def initialize_model(model_name, num_classes, feature_extract, use_pretrained=Tr
         # model_ft = torch.hub.load('facebookresearch/swav:main', 'resnet50')
         set_parameter_requires_grad(model_ft, feature_extract)
         num_ftrs = model_ft.fc.in_features
-        print(num_ftrs,num_classes)
+        # print(num_ftrs, num_classes)
         model_ft.fc = nn.Linear(num_ftrs,num_classes) 
         input_size = 1024
     elif model_name == "inceptresnet":
@@ -234,7 +259,7 @@ def test_model(t_model, testloader, device, weight_trained=None):
     slide_prob = []
     for data in tqdm(testloader):
         inputs = data['data'].to(device=device, dtype=torch.float)
-        labels = data['target'].to(device=device, dtype=torch.float32)
+        labels = torch.unsqueeze(data['target'].to(device=device, dtype=torch.float32), dim=1)
         labels = torch.cat([1 - labels, labels], dim=1)
         _, label_index = torch.max(labels, 1)
         p_id = data['p_id']
@@ -328,7 +353,7 @@ def patent_class(p_label, p_classification, p_classification_prob, FP_lst, FN_ls
     print('AUC ',AUC)
     return (TP+TN)/(TP+TN+FN+FP), F1_Score, AUC, FP_lst, FN_lst
 
-def train_model(model, trainloader, valloader, model_save_pth, device, num_epochs=40, is_inception=False):
+def train_model(model, trainloader, valloader, model_save_pth, model_name, device, num_epochs=40, is_inception=False):
     since = time.time()
     model = model.to(device)
     dataloaders = {'train': trainloader, 'val1': valloader}
@@ -357,7 +382,9 @@ def train_model(model, trainloader, valloader, model_save_pth, device, num_epoch
                 # Iterate over data.
                 for data in tqdm(dataloaders[phase]):
                     inputs = data['data'].to(device, dtype=torch.float)
-                    labels = data['target'].to(device=device, dtype=torch.float32)
+                    labels = torch.unsqueeze(data['target'].to(device=device, dtype=torch.float32), dim=1)
+                    # print(labels)
+                    # print(labels.shape)
                     labels = torch.cat([1 - labels, labels], dim=1)
                     # zero the parameter gradients
                     optimizer.zero_grad()
@@ -401,7 +428,7 @@ def train_model(model, trainloader, valloader, model_save_pth, device, num_epoch
                 if acc > best_acc:
                     best_acc = acc
                 best_model_wts = copy.deepcopy(model.state_dict())
-                torch.save(model, model_save_pth+'best_resnet50.pt')
+                torch.save(model, model_save_pth+model_name+'.pt')
                         
             if phase == 'val1':
                 val_acc_history.append(epoch_acc)
@@ -441,14 +468,14 @@ def main():
     
 
     train_wsi_dataset = WSIDataset(GLIOMA_MODEL_PATH, transform=transforms.Compose([My_Transform(),
-                                                                            My_Normalize(),
-                                                                            ToTensor()]))
+                                                                                    ToTensor(),
+                                                                                    Cyclegan_Normalize()]))
     val_wsi_dataset = WSIDataset(GLIOMA_MODEL_PATH, transform=transforms.Compose([My_Transform(),
-                                                                            My_Normalize(),
-                                                                            ToTensor()]))
+                                                                                  ToTensor(),
+                                                                                  Cyclegan_Normalize()]))
     test_wsi_dataset = WSIDataset(GLIOMA_MODEL_PATH,transform=transforms.Compose([My_Transform_valid(),
-                                                                        My_Normalize(),
-                                                                            ToTensor()]))
+                                                                                  ToTensor(),
+                                                                                  Cyclegan_Normalize()]))
     
     trainloader = train_wsi_dataset.Obtain_loader(args.training_dataset, batch_size=args.batch_size, n_jobs=4)
     valloader = val_wsi_dataset.Obtain_loader(args.validation_dataset, batch_size=args.batch_size, n_jobs=4)
@@ -460,13 +487,14 @@ def main():
     model_ft, input_size = initialize_model('resnet', 2, False, use_pretrained=True)
 
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    print('\n Using : ',device)
+    print('\n Using : ', device)
     # model_save_pth = '/content/drive/MyDrive/stain_norm/results/unet_resunet_breakhis/normalised/%d/fold%d'%(sn_epoch, fold)
     model_save_pth = './models/'
 
-    model_trained, train_acc_history, val_acc_history = train_model(model_ft, trainloader, valloader, model_save_pth, device, num_epochs=40)
+    model_trained, train_acc_history, val_acc_history = train_model(model_ft, trainloader, valloader, model_save_pth, args.model_name, device, num_epochs=40)
     
     test_model(model_trained, testloader, device, weight_trained=None)
-    
+
+
 if __name__ == '__main__':
     main()
